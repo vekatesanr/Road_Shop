@@ -56,19 +56,33 @@ GOOGLE_SCOPES = [
 SALES_SHEET_NAME = os.environ.get("SALES_SHEET_NAME", "Sales")
 SUMMARY_SHEET_NAME = os.environ.get("SUMMARY_SHEET_NAME", "DailySummary")
 
+# ── Cloud Deployment Auto-Detection ──────────────────────────────────────────
+
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+IS_RENDER = os.environ.get("RENDER") == "true"
+
+# On Vercel, the filesystem is read-only except for /tmp.
+# On Render (Free Tier), the filesystem is ephemeral, but writable.
+_DATA_DIR = "/tmp/data" if IS_VERCEL else "data"
+
+# Ensure data directory exists
+os.makedirs(_DATA_DIR, exist_ok=True)
+
 # ── Excel backup file paths ─────────────────────────────────────────────────
 
-SALES_FILE = os.environ.get("SALES_FILE", "data/sales.xlsx")
-SUMMARY_FILE = os.environ.get("SUMMARY_FILE", "data/daily_summary.xlsx")
+SALES_FILE = os.environ.get("SALES_FILE", os.path.join(_DATA_DIR, "sales.xlsx"))
+SUMMARY_FILE = os.environ.get("SUMMARY_FILE", os.path.join(_DATA_DIR, "daily_summary.xlsx"))
 
 # ── Offline sync ─────────────────────────────────────────────────────────────
 
-PENDING_SYNC_FILE = os.environ.get("PENDING_SYNC_FILE", "data/pending_sync.json")
+PENDING_SYNC_FILE = os.environ.get("PENDING_SYNC_FILE", os.path.join(_DATA_DIR, "pending_sync.json"))
 SYNC_INTERVAL_SECONDS = int(os.environ.get("SYNC_INTERVAL_SECONDS", "60"))
 
 # ── Feature toggles ─────────────────────────────────────────────────────────
 
-EXCEL_BACKUP_ENABLED = os.environ.get("EXCEL_BACKUP_ENABLED", "true").lower() == "true"
+# Disable Excel Backup entirely on Vercel because instances are ephemeral
+_default_excel_backup = "false" if IS_VERCEL else "true"
+EXCEL_BACKUP_ENABLED = os.environ.get("EXCEL_BACKUP_ENABLED", _default_excel_backup).lower() == "true"
 WEATHER_ENABLED = os.environ.get("WEATHER_ENABLED", "true").lower() == "true"
 
 # ── Server ───────────────────────────────────────────────────────────────────

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: road-shop
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: VERCEL
+        value: "0"
+      - key: RENDER
+        value: "true"
+      # You can add a persistent disk if you have a paid plan, 
+      # but it's optional now since Google Sheets is the primary database.
+      # GOOGLE_CREDENTIALS_JSON must be set in the Render Dashboard manually.
