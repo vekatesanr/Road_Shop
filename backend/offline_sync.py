@@ -13,6 +13,14 @@ from backend.utils import safe_int, safe_str
 
 log = logging.getLogger(__name__)
 
+# Sale columns in Google Sheet order — must match sales.py _SALE_COLUMNS
+_SALE_COLUMNS = [
+    "Sale_ID", "Date", "Time", "Day_Name",
+    "Product_Name", "Sale_Type", "Variant",
+    "Quantity", "Quantity_Unit", "Unit_Price",
+    "Total_Amount", "Customer_Type", "Status",
+]
+
 # Lock for protecting file writes and thread-safety
 _sync_lock = threading.Lock()
 _worker_thread = None
@@ -90,7 +98,7 @@ def _process_single_item(item: dict) -> bool:
                 return False
                 
             if action == "save":
-                row = [data.get(col, "") for col in database._SALE_COLUMNS]
+                row = [data.get(col, "") for col in _SALE_COLUMNS]
                 sanitized = Google_Sheet._sanitize_row(row)
                 Google_Sheet.sales_sheet.append_row(sanitized)
                 log.info("Offline sync: Saved sale ID %s", data.get("Sale_ID"))
@@ -111,7 +119,7 @@ def _process_single_item(item: dict) -> bool:
                     for key, val in updates.items():
                         if key in target_record:
                             target_record[key] = val
-                    row_values = [target_record.get(col, "") for col in database._SALE_COLUMNS]
+                    row_values = [target_record.get(col, "") for col in _SALE_COLUMNS]
                     sanitized = Google_Sheet._sanitize_row(row_values)
                     Google_Sheet.sales_sheet.update(f"A{target_row}:M{target_row}", [sanitized])
                     log.info("Offline sync: Updated sale ID %s", sale_id)
