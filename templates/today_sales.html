@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0f0d">
+  <meta name="description" content="Today's Sales – Manage and review all transactions for Street Food Shop.">
+  <title>Today Sales — Street Food Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* page glow */
+    body::before {
+      content: '';
+      position: fixed;
+      bottom: -100px; right: -60px;
+      width: 380px; height: 380px;
+      background: radial-gradient(circle, rgba(123,58,237,0.12) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .container { position: relative; z-index: 1; }
+
+    /* topbar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-sm);
+      margin-bottom: var(--sp-xl);
+    }
+    .back-btn {
+      width: 36px; height: 36px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--r-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all var(--dur) var(--ease);
+      text-decoration: none;
+    }
+    .back-btn:active { transform: scale(0.9); }
+    .topbar-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .topbar-count {
+      margin-left: auto;
+      background: var(--surface-elevated);
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--r-pill);
+      padding: 4px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    /* sale card animate-in */
+    .sale-card {
+      animation: saleIn 250ms var(--ease) both;
+    }
+    @keyframes saleIn {
+      from { opacity: 0; transform: translateX(-12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* edit modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 300;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 250ms var(--ease);
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-sheet {
+      background: var(--surface-card);
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--r-xl) var(--r-xl) 0 0;
+      padding: var(--sp-xl) var(--sp-xl) max(var(--sp-xl), env(safe-area-inset-bottom));
+      width: 100%;
+      max-width: 500px;
+      transform: translateY(40px);
+      transition: transform 300ms var(--ease);
+    }
+    .modal-overlay.open .modal-sheet {
+      transform: translateY(0);
+    }
+    .modal-handle {
+      width: 36px; height: 4px;
+      background: var(--hairline-strong);
+      border-radius: 2px;
+      margin: 0 auto var(--sp-lg);
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      margin-bottom: var(--sp-lg);
+    }
+    .modal-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-sm);
+      margin-top: var(--sp-sm);
+    }
+
+    /* customer type in modal */
+    .modal-cust-row {
+      display: flex;
+      gap: 6px;
+      margin: 10px 0 14px;
+    }
+    .cust-btn {
+      flex: 1;
+      padding: 7px 4px;
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--r-md);
+      background: var(--surface-elevated);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 150ms var(--ease);
+      text-align: center;
+    }
+    .cust-btn.active {
+      border-color: var(--accent);
+      background: rgba(13,107,83,0.18);
+      color: var(--accent);
+    }
+
+    /* time tag */
+    .time-tag {
+      font-size: 11px;
+      color: var(--muted-soft);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* customer badge on sale card */
+    .cust-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: var(--r-pill);
+      font-weight: 600;
+      margin-top: 2px;
+      display: inline-block;
+    }
+    .cust-badge.Regular { background: rgba(13,107,83,0.2); color: var(--accent); }
+    .cust-badge.New     { background: rgba(0,100,200,0.2); color: #4a9eff; }
+    .cust-badge.Unknown { background: var(--surface-elevated); color: var(--muted); }
+
+    /* close shop band */
+    .close-band {
+      background: var(--surface-card);
+      border: 1px solid rgba(217,39,39,0.2);
+      border-radius: var(--r-xl);
+      padding: var(--sp-lg);
+      margin-bottom: var(--sp-xl);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-md);
+    }
+    .close-band .cb-text { font-size: 14px; font-weight: 500; color: var(--body); }
+    .close-band .cb-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ── Top Bar ─────────────────────────────────────── -->
+  <div class="topbar">
+    <a href="/sales" class="back-btn" aria-label="Back to Sales Entry">‹</a>
+    <span class="topbar-title">Today Sales</span>
+    <span class="topbar-count" id="total-count">
+      {{ sales | length }} sale{{ 's' if sales | length != 1 else '' }}
+    </span>
+  </div>
+
+  <!-- ── Summary Strip ──────────────────────────────── -->
+  <div class="summary-strip">
+    <div class="summary-item s-green">
+      <div class="s-label">💰 Revenue</div>
+      <div class="s-value" id="total-revenue">₹{{ summary.revenue | default(0) }}</div>
+    </div>
+    <div class="summary-item s-blue">
+      <div class="s-label">🛒 Orders</div>
+      <div class="s-value" id="total-orders">{{ summary.orders | default(0) }}</div>
+    </div>
+    <div class="summary-item s-orange">
+      <div class="s-label">📦 Items</div>
+      <div class="s-value" id="total-items">{{ summary.items | default(0) }}</div>
+    </div>
+  </div>
+
+  <!-- ── Close Shop Band ────────────────────────────── -->
+  <div class="close-band">
+    <div>
+      <div class="cb-text">Ready to wrap up?</div>
+      <div class="cb-sub">All sales will be saved to Excel.</div>
+    </div>
+    <button class="btn btn-danger btn-sm" id="btn-close-shop" onclick="handleCloseShop()" aria-label="Close Shop">
+      🔒 CLOSE
+    </button>
+  </div>
+
+  <!-- ── Sales List ─────────────────────────────────── -->
+  <div class="section-label">Transactions</div>
+  <div class="sales-list" id="sales-list">
+
+    {% if sales %}
+      {% for sale in sales %}
+      <div class="sale-card" id="sale-{{ sale.Sale_ID }}" style="animation-delay: {{ loop.index0 * 40 }}ms">
+
+        <div class="sale-icon">
+          <img src="{{ url_for('static', filename='images/' + (sale.image_file | default('chicken_pakoda.jpg'))) }}"
+               alt="{{ sale.Product_Name }}"
+               style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);"
+               onerror="this.src='{{ url_for('static', filename='images/chicken_pakoda.jpg') }}'">
+        </div>
+
+        <div class="sale-info">
+          <div class="sale-product">{{ sale.Product_Name }}</div>
+          <div class="sale-meta">
+            {% if sale.Sale_Type == 'weight' %}
+              {{ sale.Quantity }}{{ sale.Quantity_Unit | default('g') }}
+            {% elif sale.Sale_Type == 'variant' %}
+              {{ sale.Variant }} × {{ sale.Quantity }}
+            {% else %}
+              {{ sale.Quantity }} {{ sale.Quantity_Unit | default('pc') }}
+            {% endif %}
+            {% if sale.Time %}
+              &nbsp;<span class="time-tag">{{ sale.Time }}</span>
+            {% endif %}
+          </div>
+          <span class="cust-badge {{ sale.Customer_Type | default('Unknown') }}">
+            {{ sale.Customer_Type | default('Unknown') }}
+          </span>
+        </div>
+
+        <div class="sale-amount">₹{{ sale.Total_Amount }}</div>
+
+        <div class="sale-actions">
+          <button class="sale-action-btn edit"
+                  onclick="openEdit('{{ sale.Sale_ID }}', '{{ sale.Product_Name }}', {{ sale.Total_Amount }}, '{{ sale.Customer_Type | default('Unknown') }}')"
+                  aria-label="Edit {{ sale.Product_Name }} sale">✏</button>
+          <button class="sale-action-btn delete"
+                  onclick="deleteSale({{ sale.Sale_ID }})"
+                  aria-label="Delete {{ sale.Product_Name }} sale">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <!-- Empty state -->
+      <div class="empty-state">
+        <div class="empty-icon">🧾</div>
+        <div class="empty-text">No sales yet today</div>
+        <div class="empty-sub">Go to Sales Entry to add products.</div>
+        <a href="/sales" class="btn btn-primary mt-lg" style="max-width:240px;margin:var(--sp-lg) auto 0">
+          ➕ Add Sales
+        </a>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div><!-- /.container -->
+
+<!-- ── Bottom Nav ──────────────────────────────────── -->
+<nav class="bottom-nav">
+  <a href="/" class="btn btn-ghost btn-sm" style="flex:1" aria-label="Dashboard">
+    🏠 Dashboard
+  </a>
+  <a href="/sales" class="btn btn-primary btn-sm" style="flex:1" aria-label="Sales Entry">
+    ➕ Add Sale
+  </a>
+</nav>
+
+<!-- ── Toast ───────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── Edit Modal (Bottom Sheet) ───────────────────── -->
+<div class="modal-overlay" id="edit-modal" role="dialog" aria-modal="true" aria-label="Edit Sale">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">Edit Sale</div>
+
+    <div class="input-group">
+      <label class="input-label" for="edit-amount">New Amount (₹)</label>
+      <input type="number"
+             id="edit-amount"
+             class="input-field"
+             placeholder="Enter new amount"
+             inputmode="numeric"
+             min="1">
+    </div>
+
+    <div class="input-label" style="margin-top:12px;">Customer Type</div>
+    <div class="modal-cust-row">
+      <button class="cust-btn" id="edit-cust-Regular" onclick="setEditCust('Regular')">Regular</button>
+      <button class="cust-btn active" id="edit-cust-Unknown" onclick="setEditCust('Unknown')">Unknown</button>
+      <button class="cust-btn" id="edit-cust-New" onclick="setEditCust('New')">New</button>
+    </div>
+
+    <div class="modal-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-edit" onclick="saveEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentEditId  = null;
+  let editCustType   = 'Unknown';
+
+  /* ── Toast ─────────────────────────────────────────── */
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className   = 'toast show ' + type;
+    setTimeout(() => { t.className = 'toast'; }, 2800);
+  }
+
+  /* ── Fetch and refresh summary strip ──────────────── */
+  function refreshSummary() {
+    fetch('/api/summary')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        document.getElementById('total-revenue').textContent = '₹' + (data.revenue || 0);
+        document.getElementById('total-orders').textContent  = data.orders || 0;
+        document.getElementById('total-items').textContent   = data.items  || 0;
+      })
+      .catch(() => {});
+  }
+
+  /* ── Delete sale ────────────────────────────────────── */
+  function deleteSale(saleId) {
+    if (!confirm('Delete this sale?')) return;
+
+    fetch('/api/delete-sale', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ sale_id: saleId })
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res.status === 'success') {
+        removeSaleCard(saleId);
+        refreshSummary();
+        showToast('🗑 Sale deleted', 'success');
+      } else {
+        showToast('❌ ' + (res.message || 'Could not delete sale'), 'error');
+      }
+    })
+    .catch(() => {
+      showToast('❌ Delete failed. Check connection.', 'error');
+    });
+  }
+
+  function removeSaleCard(saleId) {
+    const card = document.getElementById('sale-' + saleId);
+    if (!card) return;
+    card.style.transition = 'all 300ms';
+    card.style.opacity    = '0';
+    card.style.transform  = 'translateX(-20px)';
+    setTimeout(() => {
+      card.remove();
+      updateCount(-1);
+    }, 300);
+  }
+
+  function updateCount(delta) {
+    const el  = document.getElementById('total-count');
+    const cur = parseInt(el.textContent) || 0;
+    const num = cur + delta;
+    el.textContent = num + ' sale' + (num !== 1 ? 's' : '');
+  }
+
+  /* ── Edit modal ─────────────────────────────────────── */
+  function openEdit(saleId, productName, currentAmount, currentCustType) {
+    currentEditId = saleId;
+    editCustType  = currentCustType || 'Unknown';
+    document.getElementById('modal-title').textContent = 'Edit: ' + productName;
+    document.getElementById('edit-amount').value = currentAmount;
+    setEditCust(editCustType);
+    document.getElementById('edit-modal').classList.add('open');
+    setTimeout(() => document.getElementById('edit-amount').focus(), 350);
+  }
+
+  function setEditCust(type) {
+    editCustType = type;
+    ['Regular','Unknown','New'].forEach(t => {
+      const btn = document.getElementById('edit-cust-' + t);
+      if (btn) btn.classList.toggle('active', t === type);
+    });
+  }
+
+  function closeModal() {
+    document.getElementById('edit-modal').classList.remove('open');
+    currentEditId = null;
+  }
+
+  function saveEdit() {
+    const amount = parseFloat(document.getElementById('edit-amount').value);
+    if (!amount || amount <= 0) { showToast('⚠ Enter a valid amount', 'error'); return; }
+
+    const saveBtn = document.getElementById('btn-save-edit');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+
+    fetch('/api/edit-sale', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        sale_id:       currentEditId,
+        amount:        amount,
+        customer_type: editCustType
+      })
+    })
+    .then(r => r.json())
+    .then(res => {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      if (res.status === 'success') {
+        closeModal();
+        showToast('✅ Sale updated!', 'success');
+        setTimeout(() => location.reload(), 700);
+      } else {
+        showToast('❌ ' + (res.message || 'Could not update sale'), 'error');
+      }
+    })
+    .catch(() => {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      showToast('❌ Edit failed. Check connection.', 'error');
+    });
+  }
+
+  /* Close modal on overlay click */
+  document.getElementById('edit-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  /* ── Close shop ─────────────────────────────────────── */
+  function handleCloseShop() {
+    if (!confirm('Close the shop for today? This will finalize today\'s data in Excel.')) return;
+    const btn = document.getElementById('btn-close-shop');
+    btn.disabled = true;
+    btn.textContent = 'Closing…';
+
+    fetch('/api/close-shop', { method: 'POST' })
+    .then(r => r.json())
+    .then(res => {
+      if (res.status === 'success') {
+        showToast('🎉 Shop closed! Great day!', 'success');
+        setTimeout(() => window.location.href = '/', 1200);
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '🔒 CLOSE';
+        showToast('⚠ ' + (res.message || 'Could not close shop'), 'error');
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = '🔒 CLOSE';
+      showToast('❌ Close failed. Check connection.', 'error');
+    });
+  }
+</script>
+
+</body>
+</html>

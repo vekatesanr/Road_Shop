@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0f0d">
+  <meta name="description" content="Street Food Shop Management System – Daily dashboard overview.">
+  <title>Dashboard — Street Food Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* ── Page-specific glow backdrop ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -120px; left: 50%;
+      transform: translateX(-50%);
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(13,107,83,0.18) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .container { position: relative; z-index: 1; }
+
+    /* ── Date / Time chip ─── */
+    .datetime-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--r-pill);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .datetime-chip .live-dot {
+      width: 7px; height: 7px;
+      background: var(--semantic-success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    /* ── Special day badge ─── */
+    .day-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: var(--r-pill);
+      font-size: 10px;
+      font-weight: 700;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+    .day-badge.holiday { background: rgba(217,150,0,0.18); color: #d99600; border: 1px solid rgba(217,150,0,0.3); }
+    .day-badge.weekend { background: rgba(0,100,200,0.15); color: #4a9eff; border: 1px solid rgba(0,100,200,0.25); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ── App Header ──────────────────────────────────── -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">🍗</div>
+      <div>
+        <div class="brand-name">Street Food</div>
+        <div class="brand-sub">Shop Management</div>
+      </div>
+    </div>
+    <div class="datetime-chip">
+      <span class="live-dot"></span>
+      <span id="live-time">—</span>
+    </div>
+  </header>
+
+  <!-- ── Page Title ─────────────────────────────────── -->
+  <h1 class="page-title">Today's<br><span>Dashboard</span></h1>
+
+  <!-- ── Weather / Info Card ──────────────────────────── -->
+  <div class="info-card" id="info-card">
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">📅 Date</span>
+        <span class="info-value" id="date-display">{{ data.date }}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">📆 Day</span>
+        <span class="info-value" id="day-display">
+          {{ data.day }}<span id="day-badge-slot"></span>
+        </span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🌤 Weather</span>
+        <span class="info-value" id="weather-display">
+          {% if data.weather and data.weather not in ['N/A','nan',''] %}{{ data.weather }}{% else %}—{% endif %}
+        </span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">🌡 Temp</span>
+        <span class="info-value" id="temp-display">
+          {% if data.temperature and data.temperature not in ['N/A','nan',''] %}{{ data.temperature }}{% else %}—{% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Stats Grid ─────────────────────────────────── -->
+  <div class="stats-grid">
+
+    <div class="stat-card green">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">Revenue</div>
+      <div class="stat-value" id="revenue-val">₹{{ data.revenue }}</div>
+    </div>
+
+    <div class="stat-card blue">
+      <div class="stat-icon">🛒</div>
+      <div class="stat-label">Orders</div>
+      <div class="stat-value" id="orders-val">{{ data.orders }}</div>
+    </div>
+
+    <div class="stat-card orange">
+      <div class="stat-icon">📦</div>
+      <div class="stat-label">Items Sold</div>
+      <div class="stat-value" id="items-val">{{ data.items }}</div>
+    </div>
+
+    <div class="stat-card purple">
+      <div class="stat-icon">⭐</div>
+      <div class="stat-label">Best Product</div>
+      <div class="stat-value" id="best-val">{{ data.best_product }}</div>
+    </div>
+
+  </div>
+
+  <!-- ── Shop Status ────────────────────────────────── -->
+  <div class="status-card" id="status-card">
+    <div>
+      <div class="status-label">Shop Status</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="status-time">—</div>
+    </div>
+    <div class="status-badge" id="status-badge">
+      <span class="status-dot"></span>
+      <span id="status-text">—</span>
+    </div>
+  </div>
+  <!-- Server-rendered shop status passed to JS -->
+  <script>var SHOP_STATUS = "{{ data.shop_status | default('NOT_OPENED') }}";</script>
+
+  <!-- ── Action Buttons ────────────────────────────── -->
+  <div class="action-stack">
+    <button id="btn-start"
+            class="btn btn-primary"
+            onclick="handleStartShop()"
+            aria-label="Start Shop">
+      <span class="btn-icon">🚀</span> START SHOP
+    </button>
+
+    <button id="btn-today"
+            class="btn btn-blue"
+            onclick="window.location.href='/today-sales'"
+            aria-label="Today Sales">
+      <span class="btn-icon">📋</span> TODAY SALES
+    </button>
+
+    <button id="btn-close"
+            class="btn btn-danger"
+            onclick="handleCloseShop()"
+            aria-label="Close Shop">
+      <span class="btn-icon">🔒</span> CLOSE SHOP
+    </button>
+  </div>
+
+</div>
+
+<!-- ── Toast ───────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ── Live clock ──────────────────────────────────── */
+  function updateClock() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+    document.getElementById('live-time').textContent = timeStr;
+  }
+  updateClock();
+  setInterval(updateClock, 30000);
+
+  /* ── Status time ─────────────────────────────────── */
+  (function() {
+    const now = new Date();
+    const str = now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+    document.getElementById('status-time').textContent = 'As of ' + str;
+  })();
+
+  /* ── Toast helper ─────────────────────────────────── */
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => { t.className = 'toast'; }, 2800);
+  }
+
+  /* ── Set badge from server-rendered shop status ──── */
+  function initShopStatus() {
+    const badge = document.getElementById('status-badge');
+    const text  = document.getElementById('status-text');
+    if (SHOP_STATUS === 'OPEN') {
+      badge.className = 'status-badge open';
+      text.textContent = 'OPEN';
+    } else if (SHOP_STATUS === 'CLOSED') {
+      badge.className = 'status-badge closed';
+      text.textContent = 'CLOSED';
+    } else {
+      badge.className = 'status-badge';
+      text.textContent = 'NOT OPENED';
+      badge.style.background = 'var(--surface-elevated)';
+      badge.style.color = 'var(--muted)';
+    }
+  }
+  initShopStatus();
+
+  /* ── Weather icon map ────────────────────────────── */
+  const WEATHER_ICONS = {
+    'Sunny':        '☀️ ',
+    'Mostly Clear': '🌤 ',
+    'Partly Cloudy':'⛅ ',
+    'Cloudy':       '☁️ ',
+    'Foggy':        '🌫 ',
+    'Drizzle':      '🌦 ',
+    'Rainy':        '🌧 ',
+    'Thunderstorm': '⛈ ',
+    'Snowy':        '❄️ ',
+    'Hail':         '🌨 ',
+  };
+
+  /* ── Fetch live weather if not already populated ─── */
+  function loadWeather() {
+    const weatherEl = document.getElementById('weather-display');
+    const tempEl    = document.getElementById('temp-display');
+    const text = weatherEl.textContent.trim();
+
+    if (text !== '—') {
+      const icon = WEATHER_ICONS[text] || '';
+      if (icon && !text.startsWith(icon)) {
+        weatherEl.textContent = icon + text;
+      }
+      return;
+    }
+
+    fetch('/api/weather')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d || d.weather === 'N/A') return;
+        const icon = WEATHER_ICONS[d.weather] || '';
+        weatherEl.textContent = icon + d.weather;
+        if (d.temperature !== 'N/A') tempEl.textContent = d.temperature;
+      })
+      .catch(() => {});
+  }
+  loadWeather();
+
+  /* ── Fetch holiday / weekend badge ──────────────── */
+  function loadDayBadge() {
+    fetch('/api/day-info')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        const slot = document.getElementById('day-badge-slot');
+        if (d.is_holiday && d.holiday_name) {
+          slot.innerHTML = ' <span class="day-badge holiday">🎉 ' + d.holiday_name + '</span>';
+        } else if (d.is_weekend) {
+          slot.innerHTML = ' <span class="day-badge weekend">🏖 Weekend</span>';
+        }
+      })
+      .catch(() => {});
+  }
+  loadDayBadge();
+
+  /* ── Start Shop ────────────────────────────────────── */
+  function handleStartShop() {
+    const btn = document.getElementById('btn-start');
+    btn.disabled = true;
+    btn.textContent = 'Opening…';
+    fetch('/api/open-shop', { method: 'POST' })
+      .then(r => r.json())
+      .then(res => {
+        if (res.status === 'success') {
+          showToast('✅ Shop is now OPEN!', 'success');
+          setTimeout(() => window.location.href = '/sales', 900);
+        } else {
+          showToast('ℹ ' + (res.message || 'Check shop status'), '');
+          setTimeout(() => window.location.href = '/sales', 900);
+        }
+      })
+      .catch(() => {
+        showToast('✅ Opening sales entry…', 'success');
+        setTimeout(() => window.location.href = '/sales', 800);
+      });
+  }
+
+  /* ── Close Shop ────────────────────────────────────── */
+  function handleCloseShop() {
+    if (!confirm('Close the shop for today?')) return;
+    const btn = document.getElementById('btn-close');
+    btn.disabled = true;
+    btn.textContent = 'Closing…';
+    fetch('/api/close-shop', { method: 'POST' })
+      .then(r => r.json())
+      .then(res => {
+        if (res.status === 'success') {
+          showToast('🔒 Shop closed. Great day!', 'success');
+        } else {
+          showToast('⚠ ' + (res.message || 'Could not close shop'), 'error');
+        }
+        setTimeout(() => location.reload(), 1000);
+      })
+      .catch(() => {
+        showToast('🔒 Shop closed.', 'success');
+        setTimeout(() => location.reload(), 1000);
+      });
+  }
+</script>
+
+</body>
+</html>

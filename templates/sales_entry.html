@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0f0d">
+  <meta name="description" content="Sales Entry – Record product sales quickly for Street Food Shop.">
+  <title>Sales Entry — Street Food Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* page glow */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -80px; right: -80px;
+      width: 380px; height: 380px;
+      background: radial-gradient(circle, rgba(0,59,142,0.14) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .container { position: relative; z-index: 1; }
+
+    /* back btn */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-sm);
+      margin-bottom: var(--sp-xl);
+    }
+    .back-btn {
+      width: 36px; height: 36px;
+      background: var(--surface-elevated);
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--r-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all var(--dur) var(--ease);
+      text-decoration: none;
+    }
+    .back-btn:active { transform: scale(0.9); }
+    .topbar-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    /* product card enter animation */
+    .product-card {
+      animation: cardIn 250ms var(--ease) both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* customer type selector */
+    .customer-row {
+      display: flex;
+      gap: 6px;
+      margin: 8px 0 10px;
+    }
+    .cust-btn {
+      flex: 1;
+      padding: 6px 4px;
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--r-md);
+      background: var(--surface-elevated);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 150ms var(--ease);
+      text-align: center;
+    }
+    .cust-btn.active {
+      border-color: var(--accent);
+      background: rgba(13,107,83,0.18);
+      color: var(--accent);
+    }
+    .cust-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ── Top Bar ─────────────────────────────────────── -->
+  <div class="topbar">
+    <a href="/" class="back-btn" aria-label="Back to Dashboard">‹</a>
+    <span class="topbar-title">Sales Entry</span>
+  </div>
+
+  <!-- ── Summary Strip ──────────────────────────────── -->
+  <div class="summary-strip" id="summary-strip">
+    <div class="summary-item s-green">
+      <div class="s-label">💰 Revenue</div>
+      <div class="s-value" id="sum-revenue">₹{{ data.revenue | default(0) }}</div>
+    </div>
+    <div class="summary-item s-blue">
+      <div class="s-label">🛒 Orders</div>
+      <div class="s-value" id="sum-orders">{{ data.orders | default(0) }}</div>
+    </div>
+    <div class="summary-item s-orange">
+      <div class="s-label">📦 Items</div>
+      <div class="s-value" id="sum-items">{{ data.items | default(0) }}</div>
+    </div>
+  </div>
+
+  <!-- ── Search ──────────────────────────────────────── -->
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="text"
+           id="search-box"
+           class="search-box"
+           placeholder="Search product…"
+           aria-label="Search product"
+           oninput="filterProducts(this.value)">
+  </div>
+
+  <!-- ── Section Label ───────────────────────────────── -->
+  <div class="section-label">Products</div>
+
+  <!-- ── Product Cards ──────────────────────────────── -->
+  <div class="product-grid" id="product-grid">
+
+    <!-- ── Chicken Pakoda (Weight-Based) ────────────── -->
+    <div class="product-card" data-name="chicken pakoda" style="animation-delay:0ms">
+      <div class="product-card-header">
+        <div class="product-emoji">
+          <img src="{{ url_for('static', filename='images/chicken_pakoda.jpg') }}" alt="Chicken Pakoda" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
+        </div>
+        <div>
+          <div class="product-name">Chicken Pakoda</div>
+          <span class="product-type-badge">Weight · ₹50/100g</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="cp-amount">Amount (₹)</label>
+        <input type="number"
+               id="cp-amount"
+               class="input-field"
+               placeholder="e.g. 50, 120, 240"
+               inputmode="numeric"
+               min="1"
+               oninput="calcWeightCP()">
+      </div>
+      <div class="auto-calc" id="cp-calc">
+        <span class="calc-label">⚖ Weight</span>
+        <span class="calc-value" id="cp-weight">— g</span>
+      </div>
+      <div class="cust-label">Customer Type</div>
+      <div class="customer-row" id="cp-cust-row">
+        <button class="cust-btn" onclick="setCust('cp','Regular')" id="cp-cust-Regular">Regular</button>
+        <button class="cust-btn active" onclick="setCust('cp','Unknown')" id="cp-cust-Unknown">Unknown</button>
+        <button class="cust-btn" onclick="setCust('cp','New')" id="cp-cust-New">New</button>
+      </div>
+      <button class="btn btn-primary"
+              id="cp-btn"
+              onclick="submitSale('Chicken Pakoda','weight','cp')"
+              aria-label="Enter Chicken Pakoda sale">
+        <span class="btn-icon">✓</span> ENTER
+      </button>
+    </div>
+
+    <!-- ── Liver (Weight-Based) ─────────────────────── -->
+    <div class="product-card" data-name="liver" style="animation-delay:40ms">
+      <div class="product-card-header">
+        <div class="product-emoji">
+          <img src="{{ url_for('static', filename='images/liver.jpg') }}" alt="Liver" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
+        </div>
+        <div>
+          <div class="product-name">Liver</div>
+          <span class="product-type-badge">Weight · ₹40/100g</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="li-amount">Amount (₹)</label>
+        <input type="number"
+               id="li-amount"
+               class="input-field"
+               placeholder="e.g. 40, 80, 120"
+               inputmode="numeric"
+               min="1"
+               oninput="calcWeightLiver()">
+      </div>
+      <div class="auto-calc" id="li-calc">
+        <span class="calc-label">⚖ Weight</span>
+        <span class="calc-value" id="li-weight">— g</span>
+      </div>
+      <div class="cust-label">Customer Type</div>
+      <div class="customer-row" id="li-cust-row">
+        <button class="cust-btn" onclick="setCust('li','Regular')" id="li-cust-Regular">Regular</button>
+        <button class="cust-btn active" onclick="setCust('li','Unknown')" id="li-cust-Unknown">Unknown</button>
+        <button class="cust-btn" onclick="setCust('li','New')" id="li-cust-New">New</button>
+      </div>
+      <button class="btn btn-primary"
+              onclick="submitSale('Liver','weight','li')"
+              aria-label="Enter Liver sale">
+        <span class="btn-icon">✓</span> ENTER
+      </button>
+    </div>
+
+    <!-- ── Leg Piece (Piece-Based) ──────────────────── -->
+    <div class="product-card" data-name="leg piece" style="animation-delay:80ms">
+      <div class="product-card-header">
+        <div class="product-emoji">
+          <img src="{{ url_for('static', filename='images/leg.jpg') }}" alt="Leg Piece" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
+        </div>
+        <div>
+          <div class="product-name">Leg Piece</div>
+          <span class="product-type-badge">Piece · ₹50/pc</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="leg-qty">Quantity</label>
+        <input type="number"
+               id="leg-qty"
+               class="input-field"
+               placeholder="e.g. 3"
+               inputmode="numeric"
+               min="1"
+               oninput="calcPiece('leg', 50)">
+      </div>
+      <div class="auto-calc" id="leg-calc">
+        <span class="calc-label">💵 Amount</span>
+        <span class="calc-value" id="leg-amount">₹ —</span>
+      </div>
+      <div class="cust-label">Customer Type</div>
+      <div class="customer-row" id="leg-cust-row">
+        <button class="cust-btn" onclick="setCust('leg','Regular')" id="leg-cust-Regular">Regular</button>
+        <button class="cust-btn active" onclick="setCust('leg','Unknown')" id="leg-cust-Unknown">Unknown</button>
+        <button class="cust-btn" onclick="setCust('leg','New')" id="leg-cust-New">New</button>
+      </div>
+      <button class="btn btn-primary"
+              onclick="submitSale('Leg Piece','piece','leg')"
+              aria-label="Enter Leg Piece sale">
+        <span class="btn-icon">✓</span> ENTER
+      </button>
+    </div>
+
+    <!-- ── Wings (Piece-Based) ──────────────────────── -->
+    <div class="product-card" data-name="wings" style="animation-delay:100ms">
+      <div class="product-card-header">
+        <div class="product-emoji">
+          <img src="{{ url_for('static', filename='images/wings.jpg') }}" alt="Wings" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
+        </div>
+        <div>
+          <div class="product-name">Wings</div>
+          <span class="product-type-badge">Piece · ₹20/pc</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="win-qty">Quantity</label>
+        <input type="number"
+               id="win-qty"
+               class="input-field"
+               placeholder="e.g. 5"
+               inputmode="numeric"
+               min="1"
+               oninput="calcPiece('win', 20)">
+      </div>
+      <div class="auto-calc" id="win-calc">
+        <span class="calc-label">💵 Amount</span>
+        <span class="calc-value" id="win-amount">₹ —</span>
+      </div>
+      <div class="cust-label">Customer Type</div>
+      <div class="customer-row" id="win-cust-row">
+        <button class="cust-btn" onclick="setCust('win','Regular')" id="win-cust-Regular">Regular</button>
+        <button class="cust-btn active" onclick="setCust('win','Unknown')" id="win-cust-Unknown">Unknown</button>
+        <button class="cust-btn" onclick="setCust('win','New')" id="win-cust-New">New</button>
+      </div>
+      <button class="btn btn-primary"
+              onclick="submitSale('Wings','piece','win')"
+              aria-label="Enter Wings sale">
+        <span class="btn-icon">✓</span> ENTER
+      </button>
+    </div>
+
+    <!-- ── Fish1 (Piece-Based) ───────────────────────── -->
+    <div class="product-card" data-name="fish1" style="animation-delay:120ms">
+      <div class="product-card-header">
+        <div class="product-emoji">
+          <img src="{{ url_for('static', filename='images/fish1.jpg') }}" alt="Fish 1" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
+        </div>
+        <div>
+          <div class="product-name">Fish 1</div>
+          <span class="product-type-badge">Piece · ₹40/pc</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="f1-qty">Quantity</label>
+        <input type="number"
+               id="f1-qty"
+               class="input-field"
+               placeholder="e.g. 2"
+               inputmode="numeric"
+               min="1"
+               oninput="calcPiece('f1', 40)">
+      </div>
+      <div class="auto-calc" id="f1-calc">
+        <span class="calc-label">💵 Amount</span>
+        <span class="calc-value" id="f1-amount">₹ —</span>
+      </div>
+      <div class="cust-label">Customer Type</div>
+      <div class="customer-row" id="f1-cust-row">
+        <button class="cust-btn" onclick="setCust('f1','Regular')" id="f1-cust-Regular">Regular</button>
+        <button class="cust-btn active" onclick="setCust('f1','Unknown')" id="f1-cust-Unknown">Unknown</button>
+        <button class="cust-btn" onclick="setCust('f1','New')" id="f1-cust-New">New</button>
+      </div>
+      <button class="btn btn-primary"
+              onclick="submitSale('Fish1','piece','f1')"
+              aria-label="Enter Fish 1 sale">
+        <span class="btn-icon">✓</span> ENTER
+      </button>
+    </div>
+
+    <!-- ── Fish2 (Piece-Based) ───────────────────────── -->
+    <div class="product-card" data-name="fish2" style="animation-delay:140ms">
+      <div class="product-card-header">
+        <div class="product-emoji">
+          <img src="{{ url_for('static', filename='images/fish2.jpg') }}" alt="Fish 2" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
+        </div>
+        <div>
+          <div class="product-name">Fish 2</div>
+          <span class="product-type-badge">Piece · ₹20/pc</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="f2-qty">Quantity</label>
+        <input type="number"
+               id="f2-qty"
+               class="input-field"
+               placeholder="e.g. 2"
+               inputmode="numeric"
+               min="1"
+               oninput="calcPiece('f2', 20)">
+      </div>
+      <div class="auto-calc" id="f2-calc">
+        <span class="calc-label">💵 Amount</span>
+        <span class="calc-value" id="f2-amount">₹ —</span>
+      </div>
+      <div class="cust-label">Customer Type</div>
+      <div class="customer-row" id="f2-cust-row">
+        <button class="cust-btn" onclick="setCust('f2','Regular')" id="f2-cust-Regular">Regular</button>
+        <button class="cust-btn active" onclick="setCust('f2','Unknown')" id="f2-cust-Unknown">Unknown</button>
+        <button class="cust-btn" onclick="setCust('f2','New')" id="f2-cust-New">New</button>
+      </div>
+      <button class="btn btn-primary"
+              onclick="submitSale('Fish2','piece','f2')"
+              aria-label="Enter Fish 2 sale">
+        <span class="btn-icon">✓</span> ENTER
+      </button>
+    </div>
+
+    <!-- ── Gravy (Piece-Based) ───────────────────────── -->
+    <div class="product-card" data-name="gravy" style="animation-delay:160ms">
+      <div class="product-card-header">
+        <div class="product-emoji">
+          <img src="{{ url_for('static', filename='images/gravy.jpg') }}" alt="Gravy" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
+        </div>
+        <div>
+          <div class="product-name">Gravy</div>
+          <span class="product-type-badge">Piece · ₹70/pc</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="grv-qty">Quantity</label>
+        <input type="number"
+               id="grv-qty"
+               class="input-field"
+               placeholder="e.g. 1"
+               inputmode="numeric"
+               min="1"
+               oninput="calcPiece('grv', 70)">
+      </div>
+      <div class="auto-calc" id="grv-calc">
+        <span class="calc-label">💵 Amount</span>
+        <span class="calc-value" id="grv-amount">₹ —</span>
+      </div>
+      <div class="cust-label">Customer Type</div>
+      <div class="customer-row" id="grv-cust-row">
+        <button class="cust-btn" onclick="setCust('grv','Regular')" id="grv-cust-Regular">Regular</button>
+        <button class="cust-btn active" onclick="setCust('grv','Unknown')" id="grv-cust-Unknown">Unknown</button>
+        <button class="cust-btn" onclick="setCust('grv','New')" id="grv-cust-New">New</button>
+      </div>
+      <button class="btn btn-primary"
+              onclick="submitSale('Gravy','piece','grv')"
+              aria-label="Enter Gravy sale">
+        <span class="btn-icon">✓</span> ENTER
+      </button>
+    </div>
+
+    <!-- ── Soup (Variant-Based) ──────────────────────── -->
+    <div class="product-card" data-name="soup" style="animation-delay:180ms">
+      <div class="product-card-header">
+        <div class="product-emoji">
+          <img src="{{ url_for('static', filename='images/soup.jpg') }}" alt="Soup" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
+        </div>
+        <div>
+          <div class="product-name">Soup</div>
+          <span class="product-type-badge">Variant</span>
+        </div>
+      </div>
+
+      <!-- Variant Chips — values match backend Variant column -->
+      <div class="radio-group" role="radiogroup" aria-label="Soup variant">
+        <div class="radio-chip">
+          <input type="radio" name="soup-variant" id="soup-dine" value="Dine-In" checked
+                 onchange="calcSoup()">
+          <label for="soup-dine">
+            <span class="chip-name">🏠 Dine-In</span>
+            <span class="chip-price">₹30 each</span>
+          </label>
+        </div>
+        <div class="radio-chip">
+          <input type="radio" name="soup-variant" id="soup-parcel" value="Parcel"
+                 onchange="calcSoup()">
+          <label for="soup-parcel">
+            <span class="chip-name">📦 Parcel</span>
+            <span class="chip-price">₹35 each</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="soup-qty">Quantity</label>
+        <input type="number"
+               id="soup-qty"
+               class="input-field"
+               placeholder="e.g. 2"
+               inputmode="numeric"
+               min="1"
+               oninput="calcSoup()">
+      </div>
+      <div class="auto-calc" id="soup-calc">
+        <span class="calc-label">💵 Amount</span>
+        <span class="calc-value" id="soup-amount">₹ —</span>
+      </div>
+      <div class="cust-label">Customer Type</div>
+      <div class="customer-row" id="soup-cust-row">
+        <button class="cust-btn" onclick="setCust('soup','Regular')" id="soup-cust-Regular">Regular</button>
+        <button class="cust-btn active" onclick="setCust('soup','Unknown')" id="soup-cust-Unknown">Unknown</button>
+        <button class="cust-btn" onclick="setCust('soup','New')" id="soup-cust-New">New</button>
+      </div>
+      <button class="btn btn-primary"
+              onclick="submitSale('Soup','variant','soup')"
+              aria-label="Enter Soup sale">
+        <span class="btn-icon">✓</span> ENTER
+      </button>
+    </div>
+
+  </div><!-- /.product-grid -->
+
+</div><!-- /.container -->
+
+<!-- ── Bottom Nav ──────────────────────────────────── -->
+<nav class="bottom-nav">
+  <a href="/" class="btn btn-ghost btn-sm" style="flex:1" aria-label="Dashboard">
+    🏠 Dashboard
+  </a>
+  <a href="/today-sales" class="btn btn-blue btn-sm" style="flex:1" aria-label="Today Sales">
+    📋 Today Sales
+  </a>
+</nav>
+
+<!-- ── Toast ───────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ═══════════════════════════════════════════════════
+     PRODUCT MASTER — single source of truth for JS
+     Prices must match backend/products.py exactly.
+  ═══════════════════════════════════════════════════ */
+  const PRODUCTS = {
+    'Chicken Pakoda': {
+      type: 'weight', rate: 50,
+      tiers: { 50: 100, 120: 250, 240: 500 }
+    },
+    'Liver':     { type: 'weight', rate: 40 },
+    'Leg Piece': { type: 'piece',  unitPrice: 50 },
+    'Wings':     { type: 'piece',  unitPrice: 20 },
+    'Fish1':     { type: 'piece',  unitPrice: 40 },
+    'Fish2':     { type: 'piece',  unitPrice: 20 },
+    'Gravy':     { type: 'piece',  unitPrice: 70 },
+    'Soup':      { type: 'variant', variants: { 'Dine-In': 30, 'Parcel': 35 } }
+  };
+
+  /* ── Customer type state per card ─────────────────── */
+  const custState = {};
+
+  function setCust(prefix, type) {
+    custState[prefix] = type;
+    ['Regular','Unknown','New'].forEach(t => {
+      const btn = document.getElementById(prefix + '-cust-' + t);
+      if (btn) btn.classList.toggle('active', t === type);
+    });
+  }
+
+  /* Default all cards to Unknown */
+  ['cp','li','leg','win','f1','f2','grv','soup'].forEach(p => {
+    custState[p] = 'Unknown';
+  });
+
+  /* ── Summary Strip ────────────────────────────────── */
+  function fetchSummary() {
+    fetch('/api/summary')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        document.getElementById('sum-revenue').textContent = '₹' + (data.revenue || 0);
+        document.getElementById('sum-orders').textContent  = data.orders || 0;
+        document.getElementById('sum-items').textContent   = data.items  || 0;
+      })
+      .catch(() => {});
+  }
+
+  /* ── Toast ────────────────────────────────────────── */
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className   = 'toast show ' + type;
+    setTimeout(() => { t.className = 'toast'; }, 2500);
+  }
+
+  /* ── Search / filter ──────────────────────────────── */
+  function filterProducts(query) {
+    const q = query.toLowerCase().trim();
+    document.querySelectorAll('.product-card').forEach(card => {
+      const name = card.dataset.name || '';
+      card.classList.toggle('hidden', q && !name.includes(q));
+    });
+  }
+
+  /* ═══════════════════════════════════════════════════
+     WEIGHT CALCULATION ENGINE
+  ═══════════════════════════════════════════════════ */
+
+  /* Chicken Pakoda — tier-aware */
+  function calcWeightCP() {
+    const amt    = parseFloat(document.getElementById('cp-amount').value) || 0;
+    const p      = PRODUCTS['Chicken Pakoda'];
+    let grams    = 0;
+    if (amt > 0) {
+      grams = p.tiers[amt] !== undefined
+        ? p.tiers[amt]
+        : Math.round((amt / p.rate) * 100);
+    }
+    document.getElementById('cp-weight').textContent = grams > 0 ? grams + ' g' : '— g';
+  }
+
+  /* Liver — linear ₹40/100g */
+  function calcWeightLiver() {
+    const amt   = parseFloat(document.getElementById('li-amount').value) || 0;
+    const grams = amt > 0 ? Math.round((amt / PRODUCTS['Liver'].rate) * 100) : 0;
+    document.getElementById('li-weight').textContent = grams > 0 ? grams + ' g' : '— g';
+  }
+
+  /* Piece-based (all prefix-based products) */
+  function calcPiece(prefix, unitPrice) {
+    const qty = parseInt(document.getElementById(prefix + '-qty').value) || 0;
+    const amt = qty * unitPrice;
+    document.getElementById(prefix + '-amount').textContent = qty > 0 ? '₹ ' + amt : '₹ —';
+  }
+
+  /* Soup — reads selected variant price */
+  function calcSoup() {
+    const variant = document.querySelector('input[name="soup-variant"]:checked')?.value || 'Dine-In';
+    const price   = PRODUCTS['Soup'].variants[variant] || 30;
+    const qty     = parseInt(document.getElementById('soup-qty').value) || 0;
+    const amt     = qty * price;
+    document.getElementById('soup-amount').textContent = qty > 0 ? '₹ ' + amt : '₹ —';
+  }
+
+  /* ═══════════════════════════════════════════════════
+     SUBMIT SALE
+  ═══════════════════════════════════════════════════ */
+  function submitSale(productName, type, prefix) {
+    let quantity, amount, variant = null, unit = null;
+    const p = PRODUCTS[productName];
+
+    if (type === 'weight') {
+      amount = parseFloat(document.getElementById(prefix + '-amount').value);
+      if (!amount || amount <= 0) { showToast('⚠ Enter an amount first', 'error'); return; }
+      // Derive grams using same tier logic as display
+      if (productName === 'Chicken Pakoda') {
+        quantity = p.tiers[amount] !== undefined
+          ? p.tiers[amount]
+          : Math.round((amount / p.rate) * 100);
+      } else {
+        quantity = Math.round((amount / p.rate) * 100);
+      }
+      unit = 'g';
+
+    } else if (type === 'piece') {
+      quantity = parseInt(document.getElementById(prefix + '-qty').value);
+      if (!quantity || quantity <= 0) { showToast('⚠ Enter quantity first', 'error'); return; }
+      amount = quantity * p.unitPrice;
+      unit = 'pc';
+
+    } else if (type === 'variant') {
+      variant  = document.querySelector('input[name="soup-variant"]:checked')?.value || 'Dine-In';
+      quantity = parseInt(document.getElementById('soup-qty').value);
+      if (!quantity || quantity <= 0) { showToast('⚠ Enter quantity first', 'error'); return; }
+      amount = quantity * (p.variants[variant] || 30);
+      unit = 'bowl';
+    }
+
+    const customer_type = custState[prefix] || 'Unknown';
+
+    const payload = {
+      product_name:  productName,
+      sale_type:     type,
+      variant:       variant,
+      quantity:      quantity,
+      unit:          unit,
+      amount:        amount,
+      customer_type: customer_type
+    };
+
+    // Disable button during request
+    const btn = document.querySelector(
+      `[onclick="submitSale('${productName}','${type}','${prefix}')"]`
+    );
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    fetch('/api/add-sale', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="btn-icon">✓</span> ENTER'; }
+      if (data.status === 'success') {
+        fetchSummary();
+        clearCard(prefix, type);
+        showToast('✅ ' + productName + ' added!', 'success');
+      } else {
+        showToast('❌ ' + (data.message || 'Error saving sale'), 'error');
+      }
+    })
+    .catch(err => {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="btn-icon">✓</span> ENTER'; }
+      showToast('❌ Failed to save sale. Check connection.', 'error');
+    });
+  }
+
+  /* ── Clear card after successful entry ────────────── */
+  function clearCard(prefix, type) {
+    if (type === 'weight') {
+      document.getElementById(prefix + '-amount').value = '';
+      document.getElementById(prefix + '-weight').textContent = '— g';
+    } else if (type === 'piece') {
+      document.getElementById(prefix + '-qty').value = '';
+      document.getElementById(prefix + '-amount').textContent = '₹ —';
+    } else {
+      document.getElementById('soup-qty').value = '';
+      document.getElementById('soup-amount').textContent = '₹ —';
+    }
+    // Reset customer type to Unknown after each sale
+    setCust(prefix, 'Unknown');
+  }
+</script>
+
+</body>
+</html>
