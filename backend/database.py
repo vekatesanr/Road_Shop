@@ -5,9 +5,7 @@ from backend import Google_Sheet
 from backend import config
 from backend.utils import safe_float, safe_int, safe_str
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
-current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 log = logging.getLogger(__name__)
 
 # Column names in DailySummary sheet in order
@@ -260,19 +258,22 @@ def get_daily_summaries(days: int = 30) -> list[dict]:
 
 def create_daily_summary(record: dict) -> None:
     """Create a new daily summary row in Google Sheets."""
+    log.info("[SUMMARY] create_daily_summary entered for date=%s", record.get("Date"))
     _ensure_sheets()
     if Google_Sheet.summary_sheet is None:
+        log.warning("[SUMMARY] summary_sheet is None — queuing offline (create)")
         from backend.offline_sync import add_pending
         add_pending("summary", "create", record)
         return
 
     try:
+        log.info("[SUMMARY] data prepared, writing new row to Google Sheet")
         row = [record.get(col, "") for col in _SUMMARY_COLUMNS]
         sanitized = Google_Sheet._sanitize_row(row)
         Google_Sheet.summary_sheet.append_row(sanitized)
-        log.info("Daily summary row created in Google Sheets for date %s", record.get("Date"))
+        log.info("[SUMMARY] success — daily summary row created for date %s", record.get("Date"))
     except Exception as e:
-        log.error("Error creating daily summary row in Google Sheets: %s. Queueing.", e)
+        log.error("[SUMMARY] failed to create daily summary row: %s. Queuing offline.", e)
         from backend.offline_sync import add_pending
         add_pending("summary", "create", record)
 
@@ -283,13 +284,16 @@ def update_daily_summary(summary_record: dict) -> tuple[bool, str]:
     Matches by 'Date' column.
     """
     date_str = summary_record.get("Date")
+    log.info("[SUMMARY] update_daily_summary entered for date=%s", date_str)
     _ensure_sheets()
     if Google_Sheet.summary_sheet is None:
+        log.warning("[SUMMARY] summary_sheet is None — queuing offline (update)")
         from backend.offline_sync import add_pending
         add_pending("summary", "update", summary_record)
         return True, "Offline. Summary update queued."
 
     try:
+        log.info("[SUMMARY] reading existing rows from DailySummary sheet")
         records = Google_Sheet.summary_sheet.get_all_records()
         target_row = None
         for index, row in enumerate(records, start=2):
@@ -297,22 +301,26 @@ def update_daily_summary(summary_record: dict) -> tuple[bool, str]:
                 target_row = index
                 break
 
+        log.info("[SUMMARY] data prepared — %s row for date %s",
+                 "updating existing" if target_row else "appending new", date_str)
         row_values = [summary_record.get(col, "") for col in _SUMMARY_COLUMNS]
         sanitized = Google_Sheet._sanitize_row(row_values)
 
         if target_row:
+            log.info("[SUMMARY] writing to Google Sheet row %d", target_row)
             Google_Sheet.summary_sheet.update(
                 f"A{target_row}:T{target_row}",
                 [sanitized]
             )
-            log.info("Daily summary updated in Google Sheets for date %s", date_str)
+            log.info("[SUMMARY] success — daily summary updated for date %s", date_str)
         else:
+            log.info("[SUMMARY] writing new append row to Google Sheet")
             Google_Sheet.summary_sheet.append_row(sanitized)
-            log.info("Daily summary appended in Google Sheets for date %s", date_str)
+            log.info("[SUMMARY] success — daily summary appended for date %s", date_str)
 
         return True, "Daily summary synced successfully"
     except Exception as e:
-        log.error("Error updating daily summary in Google Sheets: %s. Queueing.", e)
+        log.error("[SUMMARY] failed — error updating daily summary: %s. Queuing offline.", e)
         from backend.offline_sync import add_pending
         add_pending("summary", "update", summary_record)
         return True, "Connection lost. Summary update queued offline."

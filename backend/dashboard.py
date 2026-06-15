@@ -3,11 +3,8 @@
 import os
 import pandas as pd
 from datetime import datetime
-from backend.utils import normalize_date, safe_int, safe_str
+from backend.utils import normalize_date, safe_int, safe_str, ist_now
 from backend import config
-from zoneinfo import ZoneInfo
-
-current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 _EMPTY_DATA = {
     "date": "",
     "day": "",
@@ -33,8 +30,8 @@ def get_dashboard_data() -> dict:
 
     Never returns None. Returns safe zero-state dict on any error.
     """
-    today = datetime.now().strftime("%Y-%m-%d")
-    base = {**_EMPTY_DATA, "date": today, "day": datetime.now().strftime("%A")}
+    today = ist_now().strftime("%Y-%m-%d")
+    base = {**_EMPTY_DATA, "date": today, "day": ist_now().strftime("%A")}
 
     try:
         from backend.database import get_daily_summary
@@ -74,8 +71,8 @@ def get_dashboard_data() -> dict:
         shop_status = "OPEN"
 
     return {
-        "date": today,
-        "day": datetime.now().strftime("%A"),
+        "date": ist_now().strftime("%Y-%m-%d"),
+        "day": ist_now().strftime("%A"),
         "weather": safe_str(row.get("Weather", ""), "N/A") or "N/A",
         "temperature": safe_str(row.get("Temperature", ""), "N/A") or "N/A",
         "revenue": safe_int(row.get("Total_Sales_Amount", 0)),

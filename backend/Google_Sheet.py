@@ -6,9 +6,7 @@ import math
 from datetime import datetime, date
 from oauth2client.service_account import ServiceAccountCredentials
 from backend import config
-from zoneinfo import ZoneInfo
 
-current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 log = logging.getLogger(__name__)
 
 scope = config.GOOGLE_SCOPES
@@ -169,11 +167,13 @@ def save_sale_to_google_sheet(sale_record):
 
 def update_daily_summary_sheet(summary_record):
     """Update or append today's summary row in the DailySummary worksheet."""
+    log.info("[SUMMARY] update_daily_summary_sheet entered for date=%s", summary_record.get("Date"))
     if summary_sheet is None:
-        log.warning("update_daily_summary_sheet: Summary sheet not available, skipping")
+        log.warning("[SUMMARY] update_daily_summary_sheet: Summary sheet not available, skipping")
         return
 
     try:
+        log.info("[SUMMARY] reading existing DailySummary rows")
         records = summary_sheet.get_all_records()
 
         target_row = None
@@ -208,16 +208,18 @@ def update_daily_summary_sheet(summary_record):
         safe_values = _sanitize_row(values)
 
         if target_row:
+            log.info("[SUMMARY] writing to Google Sheet row %d", target_row)
             summary_sheet.update(
                 f"A{target_row}:T{target_row}",
                 [safe_values]
             )
         else:
+            log.info("[SUMMARY] appending new row to DailySummary")
             summary_sheet.append_row(safe_values)
 
-        log.info("Daily summary synced for %s", summary_record["Date"])
+        log.info("[SUMMARY] success — daily summary synced for %s", summary_record["Date"])
     except Exception as e:
-        log.warning("update_daily_summary_sheet error: %s", e)
+        log.warning("[SUMMARY] failed — update_daily_summary_sheet error: %s", e)
 
 
 def sync_daily_summary_to_google():
@@ -225,17 +227,19 @@ def sync_daily_summary_to_google():
     Full sync: read daily_summary.xlsx and overwrite the DailySummary
     worksheet.  Headers are preserved.
     """
+    log.info("[SUMMARY] sync_daily_summary_to_google entered")
     if summary_sheet is None:
-        log.warning("sync_daily_summary_to_google: Summary sheet not available, skipping")
+        log.warning("[SUMMARY] sync_daily_summary_to_google: Summary sheet not available, skipping")
         return
 
     try:
         import pandas as pd
 
-        log.info("SYNC STARTED")
+        log.info("[SUMMARY] reading daily_summary.xlsx for full sync")
 
         summary_df = pd.read_excel(config.SUMMARY_FILE)
 
+        log.info("[SUMMARY] clearing DailySummary sheet before full sync")
         summary_sheet.clear()
 
         headers = summary_df.columns.tolist()
@@ -244,7 +248,7 @@ def sync_daily_summary_to_google():
         for row in summary_df.values.tolist():
             summary_sheet.append_row(_sanitize_row(row))
 
-        log.info("SYNC COMPLETED — %d rows written", len(summary_df))
+        log.info("[SUMMARY] success — full sync completed — %d rows written", len(summary_df))
 
     except Exception as e:
-        log.warning("sync_daily_summary_to_google error: %s", e)
+        log.warning("[SUMMARY] failed — sync_daily_summary_to_google error: %s", e)

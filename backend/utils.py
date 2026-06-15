@@ -3,6 +3,27 @@
 # Import from here — never duplicate logic across modules.
 
 import pandas as pd
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# ── IST timezone constant ─────────────────────────────────────────────────────
+# All modules MUST use ist_now() instead of datetime.now() for business records.
+# Never use datetime.now() directly — it returns UTC on Render cloud servers.
+
+IST = ZoneInfo("Asia/Kolkata")
+
+
+def ist_now() -> datetime:
+    """
+    Return the current time as a timezone-aware datetime in Asia/Kolkata (IST).
+
+    Use this everywhere a timestamp is needed for business records:
+        sale time, open time, close time, date filters, day names.
+
+    NEVER call datetime.now() directly in business logic — it returns UTC on
+    cloud servers (Render, Railway, etc.) which is 5h 30m behind IST.
+    """
+    return datetime.now(IST)
 
 
 def normalize_date(series):

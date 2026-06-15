@@ -3,12 +3,10 @@
 import pandas as pd
 from datetime import datetime
 import os
-from backend.utils import normalize_date, safe_float
+from backend.utils import normalize_date, safe_float, ist_now
 from backend.products import get_product, get_unit_price, calc_weight_grams, VALID_CUSTOMER_TYPES
 from backend import config
-from zoneinfo import ZoneInfo
 
-current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 _SALE_COLUMNS = [
     "Sale_ID", "Date", "Time", "Day_Name",
     "Product_Name", "Sale_Type", "Variant",
@@ -41,7 +39,7 @@ def create_sale_record(
       - variant products: ₹ per bowl/unit for the selected variant
     """
     sale_id = generate_sale_id()
-    now = datetime.now()
+    now = ist_now()  # IST timezone-aware datetime
 
     # Sanitize customer type
     if customer_type not in VALID_CUSTOMER_TYPES:
@@ -96,7 +94,7 @@ def get_today_sales() -> pd.DataFrame:
             df = pd.read_excel(config.SALES_FILE)
             if not df.empty:
                 df["Date"] = normalize_date(df["Date"].astype(str))
-                today = datetime.now().strftime("%Y-%m-%d")
+                today = ist_now().strftime("%Y-%m-%d")
                 return df[(df["Date"] == today) & (df["Status"] == "Active")].copy()
         return pd.DataFrame(columns=_SALE_COLUMNS)
 
@@ -104,7 +102,7 @@ def get_today_sales() -> pd.DataFrame:
         return pd.DataFrame(columns=_SALE_COLUMNS)
 
     df = pd.DataFrame(sales)
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = ist_now().strftime("%Y-%m-%d")
     df["Date"] = normalize_date(df["Date"].astype(str))
 
     today_df = df[
@@ -136,7 +134,7 @@ def delete_sale(sale_id: int) -> tuple[bool, str]:
         return False, "Sale ID not found"
 
     sale_date = normalize_date(pd.Series([str(target_sale["Date"])]))[0]
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = ist_now().strftime("%Y-%m-%d")
 
     if sale_date != today:
         return False, "Cannot delete past-day transactions"
@@ -188,7 +186,7 @@ def edit_sale(
         return False, "Sale ID not found"
 
     sale_date = normalize_date(pd.Series([str(target_sale["Date"])]))[0]
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = ist_now().strftime("%Y-%m-%d")
 
     if sale_date != today:
         return False, "Cannot edit past-day transactions"

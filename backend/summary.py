@@ -4,15 +4,13 @@ import pandas as pd
 import os
 import logging
 from datetime import datetime
-from backend.utils import normalize_date
+from backend.utils import normalize_date, ist_now
 from backend.weather import get_weather_data
 from backend.holidays import get_day_info
 from backend.event_predictor import predict_special_event
 from backend.sales_analyzer import get_sales_prediction
 from backend import config
-from zoneinfo import ZoneInfo
 
-current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 log = logging.getLogger(__name__)
 
 
@@ -27,7 +25,7 @@ def create_day_record():
 
     No manual input required.
     """
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = ist_now().strftime("%Y-%m-%d")
 
     try:
         from backend.database import get_daily_summary, create_daily_summary
@@ -60,7 +58,7 @@ def create_day_record():
 
     new_row = {
         "Date": today,
-        "Day_Name": datetime.now().strftime("%A"),
+        "Day_Name": ist_now().strftime("%A"),
         "Open_Time": "",
         "Close_Time": "",
         "Weather": weather_data["weather"],
@@ -111,7 +109,7 @@ def update_daily_summary():
     Recalculate today's aggregates from sales database and write them to
     Google Sheets.
     """
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = ist_now().strftime("%Y-%m-%d")
 
     from backend.database import get_sales, get_daily_summary, update_daily_summary as db_update_summary
     try:
@@ -180,7 +178,7 @@ def open_shop(is_holiday=None, special_event=None, notes=""):
     Record the shop open time for today in Google Sheets.
     Automatically fetches weather data and detects holidays/weekends.
     """
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = ist_now().strftime("%Y-%m-%d")
 
     from backend.database import get_daily_summary, update_daily_summary as db_update_summary
     try:
@@ -213,7 +211,7 @@ def open_shop(is_holiday=None, special_event=None, notes=""):
     final_event   = special_event if special_event is not None else auto_event
 
     # ── Write to summary row ──────────────────────────────────────────────
-    summary["Open_Time"]    = datetime.now().strftime("%H:%M:%S")
+    summary["Open_Time"]    = ist_now().strftime("%H:%M:%S")  # IST — critical fix
     summary["Weather"]      = weather_data["weather"]
     summary["Temperature"]  = weather_data["temperature"]
     summary["Rain_Level"]   = weather_data["rain_level"]
@@ -237,7 +235,7 @@ def open_shop(is_holiday=None, special_event=None, notes=""):
 
 def close_shop():
     """Record the shop close time for today in Google Sheets."""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = ist_now().strftime("%Y-%m-%d")
 
     from backend.database import get_daily_summary, update_daily_summary as db_update_summary
     try:
@@ -248,7 +246,7 @@ def close_shop():
     if not summary:
         return False, "Today's record not found in database"
 
-    summary["Close_Time"] = datetime.now().strftime("%H:%M:%S")
+    summary["Close_Time"] = ist_now().strftime("%H:%M:%S")  # IST — critical fix
 
     db_update_summary(summary)
 
@@ -273,7 +271,7 @@ def get_shop_status():
         "CLOSED"      — shop has been opened and closed
         "NO_RECORD"   — no record found for today
     """
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = ist_now().strftime("%Y-%m-%d")
 
     from backend.database import get_daily_summary
     try:
