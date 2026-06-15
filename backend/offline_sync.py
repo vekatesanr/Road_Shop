@@ -10,7 +10,9 @@ from backend import config
 from backend import Google_Sheet
 from backend import database
 from backend.utils import safe_int, safe_str
+from zoneinfo import ZoneInfo
 
+current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 log = logging.getLogger(__name__)
 
 # Sale columns in Google Sheet order — must match sales.py _SALE_COLUMNS

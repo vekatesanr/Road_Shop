@@ -10,7 +10,9 @@ from backend.holidays import get_day_info
 from backend.event_predictor import predict_special_event
 from backend.sales_analyzer import get_sales_prediction
 from backend import config
+from zoneinfo import ZoneInfo
 
+current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 log = logging.getLogger(__name__)
 
 

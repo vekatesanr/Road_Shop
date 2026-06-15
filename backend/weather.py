@@ -13,6 +13,9 @@
 
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+current_time = datetime.now(ZoneInfo("Asia/Kolkata"))   
 
 log = logging.getLogger(__name__)
 

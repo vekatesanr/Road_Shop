@@ -6,7 +6,9 @@ import os
 from backend.utils import normalize_date, safe_float
 from backend.products import get_product, get_unit_price, calc_weight_grams, VALID_CUSTOMER_TYPES
 from backend import config
+from zoneinfo import ZoneInfo
 
+current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 _SALE_COLUMNS = [
     "Sale_ID", "Date", "Time", "Day_Name",
     "Product_Name", "Sale_Type", "Variant",

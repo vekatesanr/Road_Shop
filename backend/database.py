@@ -1,11 +1,13 @@
 # backend/database.py
 
 import logging
-from datetime import datetime
 from backend import Google_Sheet
 from backend import config
 from backend.utils import safe_float, safe_int, safe_str
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 log = logging.getLogger(__name__)
 
 # Column names in DailySummary sheet in order

@@ -5,7 +5,9 @@ import pandas as pd
 from datetime import datetime
 from backend.utils import normalize_date, safe_int, safe_str
 from backend import config
+from zoneinfo import ZoneInfo
 
+current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 _EMPTY_DATA = {
     "date": "",
     "day": "",

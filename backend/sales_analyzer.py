@@ -11,7 +11,9 @@ from backend.utils import normalize_date
 from backend import config
 
 log = logging.getLogger(__name__)
+from zoneinfo import ZoneInfo
 
+current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 
 def _get_last_n_days_summary(days: int = 30) -> pd.DataFrame:
     """

@@ -6,7 +6,9 @@ import math
 from datetime import datetime, date
 from oauth2client.service_account import ServiceAccountCredentials
 from backend import config
+from zoneinfo import ZoneInfo
 
+current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 log = logging.getLogger(__name__)
 
 scope = config.GOOGLE_SCOPES
