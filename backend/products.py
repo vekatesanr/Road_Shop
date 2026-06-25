@@ -53,6 +53,13 @@ PRODUCTS = {
         "unit_price": 20,
         "unit": "pc",
     },
+    "Fish3": {
+        "type": "piece",
+        "display": "Fish 3",
+        "image": "fish3.jpg",
+        "unit_price": 30,
+        "unit": "pc",
+    },
     "Gravy": {
         "type": "piece",
         "display": "Gravy",
