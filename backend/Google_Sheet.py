@@ -3,6 +3,8 @@
 import gspread
 import logging
 import math
+import time
+import functools
 from datetime import datetime, date
 from oauth2client.service_account import ServiceAccountCredentials
 from backend import config
@@ -20,7 +22,15 @@ spreadsheet = None
 sales_sheet = None
 summary_sheet = None
 
+
 def connect_google_sheets():
+    """
+    (Re)establish connection to Google Sheets.
+
+    Creates a fresh OAuth2 token, opens the spreadsheet, and resolves
+    both worksheet references.  Safe to call repeatedly — always
+    overwrites the module-level variables.
+    """
     global spreadsheet, sales_sheet, summary_sheet
     try:
         creds = ServiceAccountCredentials.from_json_keyfile_name(
@@ -29,8 +39,8 @@ def connect_google_sheets():
         )
         client = gspread.authorize(creds)
         spreadsheet = client.open_by_key(config.GOOGLE_SHEET_ID)
-        log.info("Google Sheet connected successfully")
-        
+        log.info("Google Sheet connected successfully (spreadsheet='%s')", spreadsheet.title)
+
         sales_sheet = get_worksheet_safe(config.SALES_SHEET_NAME)
         summary_sheet = get_worksheet_safe(config.SUMMARY_SHEET_NAME)
 
@@ -45,6 +55,7 @@ def connect_google_sheets():
             log.warning("DailySummary worksheet NOT FOUND")
     except Exception as e:
         log.warning("Google Sheet init failed: %s", e)
+
 
 # ── Safe worksheet finder ─────────────────────────────────────────────────────
 
@@ -76,8 +87,88 @@ def get_worksheet_safe(name):
         log.warning("get_worksheet_safe('%s') error: %s", name, e)
         return None
 
+
+# ── Auto-reconnect + retry logic ─────────────────────────────────────────────
+
+def ensure_connection() -> bool:
+    """
+    Verify that the Google Sheets connection is alive.
+
+    Performs a lightweight API call (reading spreadsheet title).
+    If it fails with an auth or API error, reconnects and retries once.
+
+    Returns True if connected, False if connection cannot be established.
+    """
+    global spreadsheet
+    if spreadsheet is None:
+        connect_google_sheets()
+        return spreadsheet is not None
+
+    try:
+        # Lightweight check — reads a cached property but forces an API call
+        # if the underlying token is expired, gspread raises APIError
+        _ = spreadsheet.title
+        return True
+    except Exception:
+        log.warning("Connection check failed — attempting reconnect...")
+        connect_google_sheets()
+        return spreadsheet is not None
+
+
+def _is_auth_error(exc):
+    """Check if an exception is a Google API authentication/permission error."""
+    if hasattr(exc, 'response'):
+        status = getattr(exc.response, 'status_code', 0)
+        if status in (401, 403):
+            return True
+    # Also check for common gspread error messages
+    msg = str(exc).lower()
+    return any(keyword in msg for keyword in (
+        'invalid_grant', 'token has been expired', 'token has been revoked',
+        'request had insufficient authentication', 'forbidden',
+    ))
+
+
+def with_retry(func):
+    """
+    Decorator that retries a Google Sheets operation once after reconnecting
+    if the first attempt fails with an auth-related or API error.
+
+    For non-auth errors (e.g. network timeout), also retries once after
+    a brief pause.
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as first_error:
+            log.warning("First attempt of %s failed: %s", func.__name__, first_error)
+
+            if _is_auth_error(first_error):
+                log.info("Auth error detected — reconnecting to Google Sheets...")
+                connect_google_sheets()
+            else:
+                # Brief pause before retry for transient network errors
+                time.sleep(1)
+                # Still try reconnecting in case it helps
+                try:
+                    ensure_connection()
+                except Exception:
+                    pass
+
+            # Single retry
+            try:
+                log.info("Retrying %s...", func.__name__)
+                return func(*args, **kwargs)
+            except Exception as retry_error:
+                log.error("Retry of %s also failed: %s", func.__name__, retry_error)
+                raise  # Re-raise the retry error
+    return wrapper
+
+
 # Initial connection attempt
 connect_google_sheets()
+
 
 # ── Row sanitizer ─────────────────────────────────────────────────────────────
 
