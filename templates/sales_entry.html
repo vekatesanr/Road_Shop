@@ -360,46 +360,8 @@
       </button>
     </div>
 
-    <!-- ── Fish3 (Piece-Based) ───────────────────────── -->
-    <div class="product-card" data-name="fish3" style="animation-delay:160ms">
-      <div class="product-card-header">
-        <div class="product-emoji">
-          <img src="{{ url_for('static', filename='images/fish3.jpg') }}" alt="Fish 3" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
-        </div>
-        <div>
-          <div class="product-name">Fish 3</div>
-          <span class="product-type-badge">Piece · ₹30/pc</span>
-        </div>
-      </div>
-      <div class="input-group">
-        <label class="input-label" for="f3-qty">Quantity</label>
-        <input type="number"
-               id="f3-qty"
-               class="input-field"
-               placeholder="e.g. 2"
-               inputmode="numeric"
-               min="1"
-               oninput="calcPiece('f3', 30)">
-      </div>
-      <div class="auto-calc" id="f3-calc">
-        <span class="calc-label">💵 Amount</span>
-        <span class="calc-value" id="f3-amount">₹ —</span>
-      </div>
-      <div class="cust-label">Customer Type</div>
-      <div class="customer-row" id="f3-cust-row">
-        <button class="cust-btn" onclick="setCust('f3','Regular')" id="f3-cust-Regular">Regular</button>
-        <button class="cust-btn active" onclick="setCust('f3','Unknown')" id="f3-cust-Unknown">Unknown</button>
-        <button class="cust-btn" onclick="setCust('f3','New')" id="f3-cust-New">New</button>
-      </div>
-      <button class="btn btn-primary"
-              onclick="submitSale('Fish3','piece','f3')"
-              aria-label="Enter Fish 3 sale">
-        <span class="btn-icon">✓</span> ENTER
-      </button>
-    </div>
-
     <!-- ── Gravy (Piece-Based) ───────────────────────── -->
-    <div class="product-card" data-name="gravy" style="animation-delay:180ms">
+    <div class="product-card" data-name="gravy" style="animation-delay:160ms">
       <div class="product-card-header">
         <div class="product-emoji">
           <img src="{{ url_for('static', filename='images/gravy.jpg') }}" alt="Gravy" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
@@ -437,7 +399,7 @@
     </div>
 
     <!-- ── Soup (Variant-Based) ──────────────────────── -->
-    <div class="product-card" data-name="soup" style="animation-delay:200ms">
+    <div class="product-card" data-name="soup" style="animation-delay:180ms">
       <div class="product-card-header">
         <div class="product-emoji">
           <img src="{{ url_for('static', filename='images/soup.jpg') }}" alt="Soup" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);">
@@ -527,7 +489,6 @@
     'Wings':     { type: 'piece',  unitPrice: 20 },
     'Fish1':     { type: 'piece',  unitPrice: 40 },
     'Fish2':     { type: 'piece',  unitPrice: 20 },
-    'Fish3':     { type: 'piece',  unitPrice: 30 },
     'Gravy':     { type: 'piece',  unitPrice: 70 },
     'Soup':      { type: 'variant', variants: { 'Dine-In': 30, 'Parcel': 35 } }
   };
@@ -544,7 +505,7 @@
   }
 
   /* Default all cards to Unknown */
-  ['cp','li','leg','win','f1','f2','f3','grv','soup'].forEach(p => {
+  ['cp','li','leg','win','f1','f2','grv','soup'].forEach(p => {
     custState[p] = 'Unknown';
   });
 

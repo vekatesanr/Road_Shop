@@ -11,15 +11,6 @@ import base64
 import tempfile
 import logging
 
-# ── Configure root logger so all log.* calls produce visible output ──────────
-# Without this, every log.info / log.warning / log.error in the app is silently
-# swallowed because no handler is attached to the root logger.
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
 log = logging.getLogger(__name__)
 
 # ── Google Sheets ─────────────────────────────────────────────────────────────

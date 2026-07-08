@@ -1,16 +1,12 @@
 # backend/database.py
 
 import logging
-import threading
 from backend import Google_Sheet
 from backend import config
 from backend.utils import safe_float, safe_int, safe_str
 from datetime import datetime
 
 log = logging.getLogger(__name__)
-
-# Lock for protecting Sale ID generation from race conditions
-_sale_id_lock = threading.Lock()
 
 # Column names in DailySummary sheet in order
 _SUMMARY_COLUMNS = [
@@ -26,7 +22,9 @@ _SUMMARY_COLUMNS = [
 
 def is_connected() -> bool:
     """Return True if connected to Google Sheets, False otherwise."""
-    return Google_Sheet.ensure_connection()
+    if Google_Sheet.spreadsheet is None:
+        Google_Sheet.connect_google_sheets()
+    return Google_Sheet.spreadsheet is not None
 
 
 def _ensure_sheets():
@@ -106,62 +104,30 @@ def _cast_summary_record(row_dict: dict) -> dict:
 
 # ── SALES ACCESSORS ───────────────────────────────────────────────────────────
 
-@Google_Sheet.with_retry
 def get_sales() -> list[dict]:
     """Retrieve all sales from Google Sheets."""
     _ensure_sheets()
     if Google_Sheet.sales_sheet is None:
         raise ConnectionError("Google Sheet is disconnected. Cannot retrieve sales.")
-
-    records = Google_Sheet.sales_sheet.get_all_records()
-    return [_cast_sale_record(r) for r in records]
+    
+    try:
+        records = Google_Sheet.sales_sheet.get_all_records()
+        return [_cast_sale_record(r) for r in records]
+    except Exception as e:
+        log.error("Failed to get sales from Google Sheets: %s", e)
+        raise
 
 
 def get_max_sale_id() -> int:
-    """
-    Get the current maximum Sale_ID from the Google Sheet.
-
-    Uses col_values(1) to read only the Sale_ID column — much faster than
-    get_all_records() which reads every cell.  Thread-safe via _sale_id_lock.
-    """
-    with _sale_id_lock:
-        try:
-            _ensure_sheets()
-            if Google_Sheet.sales_sheet is None:
-                log.warning("Cannot read max Sale ID — sheet not connected, defaulting to 0")
-                return 0
-
-            # col_values(1) returns all values in column A (Sale_ID) as strings
-            col_vals = Google_Sheet.sales_sheet.col_values(1)
-
-            # Skip header row, filter to numeric values only
-            max_id = 0
-            for val in col_vals[1:]:  # skip header
-                parsed = safe_int(val, default=0)
-                if parsed > max_id:
-                    max_id = parsed
-
-            log.info("Max Sale ID from Google Sheet: %d", max_id)
-            return max_id
-
-        except Exception as e:
-            log.warning("Failed to get max sale ID from Google Sheet: %s. Retrying after reconnect...", e)
-            # Single retry after reconnect
-            try:
-                Google_Sheet.connect_google_sheets()
-                if Google_Sheet.sales_sheet is None:
-                    return 0
-                col_vals = Google_Sheet.sales_sheet.col_values(1)
-                max_id = 0
-                for val in col_vals[1:]:
-                    parsed = safe_int(val, default=0)
-                    if parsed > max_id:
-                        max_id = parsed
-                log.info("Max Sale ID after reconnect: %d", max_id)
-                return max_id
-            except Exception as retry_err:
-                log.error("Retry also failed for max sale ID: %s, defaulting to 0", retry_err)
-                return 0
+    """Get the current maximum Sale_ID from the Google Sheet."""
+    try:
+        sales = get_sales()
+        if not sales:
+            return 0
+        return max(s["Sale_ID"] for s in sales)
+    except Exception:
+        log.warning("Failed to get max sale ID from Google Sheet, default to 0")
+        return 0
 
 
 def _build_gs_sale_row(sale_record: dict) -> list:
@@ -183,7 +149,6 @@ def _build_gs_sale_row(sale_record: dict) -> list:
     ]
 
 
-@Google_Sheet.with_retry
 def save_sale(sale_record: dict) -> None:
     """
     Save a new sale record to Google Sheets.
@@ -207,7 +172,6 @@ def save_sale(sale_record: dict) -> None:
         add_pending("sale", "save", sale_record)
 
 
-@Google_Sheet.with_retry
 def update_sale(sale_id: int, updates: dict) -> tuple[bool, str]:
     """
     Update field values of an existing sale by Sale_ID.
@@ -239,7 +203,7 @@ def update_sale(sale_id: int, updates: dict) -> tuple[bool, str]:
 
         row_values = _build_gs_sale_row(target_record)
         sanitized = Google_Sheet._sanitize_row(row_values)
-
+        
         Google_Sheet.sales_sheet.update(
             f"A{target_row}:M{target_row}",
             [sanitized]
@@ -260,33 +224,38 @@ def delete_sale(sale_id: int) -> tuple[bool, str]:
 
 # ── DAILY SUMMARY ACCESSORS ───────────────────────────────────────────────────
 
-@Google_Sheet.with_retry
 def get_daily_summary(date_str: str) -> dict | None:
     """Retrieve the daily summary record for a specific date (YYYY-MM-DD)."""
     _ensure_sheets()
     if Google_Sheet.summary_sheet is None:
         raise ConnectionError("Google Sheet is disconnected. Cannot retrieve daily summary.")
 
-    records = Google_Sheet.summary_sheet.get_all_records()
-    for r in records:
-        if safe_str(r.get("Date")) == date_str:
-            return _cast_summary_record(r)
-    return None
+    try:
+        records = Google_Sheet.summary_sheet.get_all_records()
+        for r in records:
+            if safe_str(r.get("Date")) == date_str:
+                return _cast_summary_record(r)
+        return None
+    except Exception as e:
+        log.error("Failed to get daily summary from Google Sheets: %s", e)
+        raise
 
 
-@Google_Sheet.with_retry
 def get_daily_summaries(days: int = 30) -> list[dict]:
     """Get the daily summaries for the last N records."""
     _ensure_sheets()
     if Google_Sheet.summary_sheet is None:
         raise ConnectionError("Google Sheet is disconnected. Cannot retrieve daily summaries.")
 
-    records = Google_Sheet.summary_sheet.get_all_records()
-    casted = [_cast_summary_record(r) for r in records]
-    return casted[-days:] if len(casted) > days else casted
+    try:
+        records = Google_Sheet.summary_sheet.get_all_records()
+        casted = [_cast_summary_record(r) for r in records]
+        return casted[-days:] if len(casted) > days else casted
+    except Exception as e:
+        log.error("Failed to get daily summaries from Google Sheets: %s", e)
+        raise
 
 
-@Google_Sheet.with_retry
 def create_daily_summary(record: dict) -> None:
     """Create a new daily summary row in Google Sheets."""
     log.info("[SUMMARY] create_daily_summary entered for date=%s", record.get("Date"))
@@ -309,7 +278,6 @@ def create_daily_summary(record: dict) -> None:
         add_pending("summary", "create", record)
 
 
-@Google_Sheet.with_retry
 def update_daily_summary(summary_record: dict) -> tuple[bool, str]:
     """
     Update or create a daily summary row in Google Sheets.
